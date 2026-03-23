@@ -78,14 +78,14 @@ Replace `/path/to/obsidian-mcp` with the cloned repo path and `/path/to/your/vau
 
 ### iCloud Vault Path (macOS)
 
-```
+```text
 /Users/<username>/Library/Mobile Documents/iCloud~md~obsidian/Documents/<Vault Name>
 ```
 
 ## Tools
 
 | Tool | Description |
-|---|---|
+| --- | --- |
 | `read_note` | Read a note with frontmatter |
 | `write_note` | Create or update a note (overwrite / append / prepend) |
 | `patch_note` | Edit part of a note via find-and-replace |
@@ -110,6 +110,10 @@ uv add <package>                           # add a dependency
 ```
 
 See [CLAUDE.md](CLAUDE.md) for architecture notes and rules for AI assistants working in this repo.
+
+## Contributing
+
+This is a personal project. Issues are welcome, but PRs are not actively reviewed.
 
 ## Credits
 
