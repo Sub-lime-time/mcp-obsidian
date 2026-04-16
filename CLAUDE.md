@@ -49,7 +49,7 @@ The server takes a vault path at startup — run one instance per vault. Each in
 ```json
 "obsidian-greg": {
   "command": "uv",
-  "args": ["--directory", "/Users/greg/repos/projects/obsidian-mcp", "run", "obsidian-mcp", "/path/to/vault"]
+  "args": ["--directory", "/Users/greg/repos/projects/mcp-obsidian", "run", "obsidian-mcp", "/path/to/vault"]
 }
 ```
 

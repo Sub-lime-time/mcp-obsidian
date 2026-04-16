@@ -25,8 +25,8 @@ Python MCP server for Obsidian vault access. A port of [bitbonsai/mcpvault](http
 brew install uv
 
 # Clone and install
-git clone git@github.com:Sub-lime-time/obsidian-mcp.git
-cd obsidian-mcp
+git clone git@github.com:Sub-lime-time/mcp-obsidian.git
+cd mcp-obsidian
 uv sync
 
 # Verify
@@ -45,7 +45,7 @@ Run one instance per vault. Add to your MCP client config:
     "obsidian-my-vault": {
       "command": "/opt/homebrew/bin/uv",
       "args": [
-        "--directory", "/path/to/obsidian-mcp",
+        "--directory", "/path/to/mcp-obsidian",
         "run", "obsidian-mcp",
         "/path/to/your/vault",
         "obsidian-my-vault"
@@ -64,7 +64,7 @@ Run one instance per vault. Add to your MCP client config:
       "type": "stdio",
       "command": "/opt/homebrew/bin/uv",
       "args": [
-        "--directory", "/path/to/obsidian-mcp",
+        "--directory", "/path/to/mcp-obsidian",
         "run", "obsidian-mcp",
         "/path/to/your/vault",
         "obsidian-my-vault"
@@ -113,7 +113,7 @@ See [CLAUDE.md](CLAUDE.md) for architecture notes and rules for AI assistants wo
 
 ## Contributing
 
-This is a personal project. Issues are welcome, but PRs are not actively reviewed.
+Bug fixes and clear improvements are welcome — open a PR. For new features, please open an issue first to discuss before writing code. I'll merge fixes that are unambiguously correct, but make no guarantees on feature additions.
 
 ## Credits
 
