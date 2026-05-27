@@ -39,6 +39,8 @@ Run one instance per vault. Add to your MCP client config:
 
 ### Claude Desktop — `~/Library/Application Support/Claude/claude_desktop_config.json`
 
+> **Note:** Claude Desktop's "Add custom connector" UI (Settings → Connectors) only supports remote HTTP/SSE servers. Local stdio servers like this one require JSON config editing.
+
 ```json
 {
   "mcpServers": {
@@ -55,26 +57,18 @@ Run one instance per vault. Add to your MCP client config:
 }
 ```
 
-### Claude Code — `~/.claude/settings.json`
+### Claude Code
 
-```json
-{
-  "mcpServers": {
-    "obsidian-my-vault": {
-      "type": "stdio",
-      "command": "/opt/homebrew/bin/uv",
-      "args": [
-        "--directory", "/path/to/mcp-obsidian",
-        "run", "obsidian-mcp",
-        "/path/to/your/vault",
-        "obsidian-my-vault"
-      ]
-    }
-  }
-}
+```bash
+claude mcp add --scope user obsidian-my-vault \
+  /opt/homebrew/bin/uv -- \
+  --directory /path/to/mcp-obsidian run obsidian-mcp \
+  "/path/to/your/vault" obsidian-my-vault
 ```
 
-Replace `/path/to/obsidian-mcp` with the cloned repo path and `/path/to/your/vault` with your Obsidian vault directory.
+Replace `/path/to/mcp-obsidian` with the cloned repo path and `/path/to/your/vault` with your Obsidian vault directory. Use `--scope user` so the server is available across all projects.
+
+Verify with `claude mcp list`. To remove: `claude mcp remove obsidian-my-vault`.
 
 ### iCloud Vault Path (macOS)
 
