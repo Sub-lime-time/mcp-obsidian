@@ -4,16 +4,42 @@ Uses a custom YAML handler that:
 - Preserves key insertion order (sort_keys=False)
 - Allows unicode
 - Serializes dates as YYYY-MM-DD (PyYAML SafeDumper default)
+- Removes sexagesimal int resolution (e.g. "6:30" stays "6:30", not 390)
 """
 from __future__ import annotations
+
+import re
 
 import yaml
 import frontmatter as _fm
 from frontmatter.default_handlers import YAMLHandler
 
 
+# Custom loader: SafeLoader minus YAML 1.1 sexagesimal int resolution.
+# PyYAML parses unquoted "6:30" as integer 390 — this constructor overrides that.
+class _ObsidianLoader(yaml.SafeLoader):
+    pass
+
+
+_SEXAGESIMAL_RE = re.compile(r"^[-+]?[1-9][0-9_]*(?::[0-5]?[0-9])+$")
+_orig_int = yaml.SafeLoader.yaml_constructors["tag:yaml.org,2002:int"]
+
+
+def _int_no_sexagesimal(loader: yaml.SafeLoader, node: yaml.ScalarNode) -> int | str:
+    value = loader.construct_scalar(node)
+    if _SEXAGESIMAL_RE.match(value):
+        return value
+    return _orig_int(loader, node)
+
+
+_ObsidianLoader.add_constructor("tag:yaml.org,2002:int", _int_no_sexagesimal)
+
+
 class _ObsidianHandler(YAMLHandler):
-    """YAML handler that preserves key order and allows unicode."""
+    """YAML handler that preserves key order, allows unicode, and skips sexagesimal."""
+
+    def load(self, fm: str, **kwargs) -> dict:
+        return yaml.load(fm, Loader=_ObsidianLoader) or {}
 
     def export(self, metadata: dict, **kwargs) -> str:  # type: ignore[override]
         return yaml.dump(

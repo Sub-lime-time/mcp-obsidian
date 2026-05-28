@@ -80,9 +80,10 @@ def create_server(vault_path: str, name: str = "obsidian-mcp") -> FastMCP:
     def delete_note(
         path: Annotated[str, Field(description="Path to the note relative to vault root")],
         confirm_path: Annotated[str, Field(description="Must exactly match path to confirm deletion")],
+        trash_mode: Annotated[str, Field(description="permanent (default) — delete forever; local — move to .trash/ inside vault; system — move to OS trash")] = "permanent",
     ) -> str:
         """Delete a note from the Obsidian vault. confirm_path must exactly match path."""
-        result = fs.delete_note(path, confirm_path)
+        result = fs.delete_note(path, confirm_path, trash_mode)
         return json.dumps(result, indent=2)
 
     # ── search_notes ──────────────────────────────────────────────────────────

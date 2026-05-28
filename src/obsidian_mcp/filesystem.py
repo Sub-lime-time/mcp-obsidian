@@ -158,7 +158,7 @@ class FileSystemService:
 
     # ── Delete ────────────────────────────────────────────────────────────────
 
-    def delete_note(self, path: str, confirm_path: str) -> dict[str, Any]:
+    def delete_note(self, path: str, confirm_path: str, trash_mode: str = "permanent") -> dict[str, Any]:
         if path.strip() != confirm_path.strip():
             return {"success": False, "path": path, "message": "Confirmation path does not match — deletion aborted."}
 
@@ -168,8 +168,30 @@ class FileSystemService:
         if not os.path.exists(full):
             return {"success": False, "path": path, "message": "Note not found"}
 
-        os.unlink(full)
-        return {"success": True, "path": path, "message": "Note deleted"}
+        if trash_mode == "permanent":
+            os.unlink(full)
+            return {"success": True, "path": path, "message": "Note deleted"}
+
+        if trash_mode == "local":
+            trash_dir = os.path.join(self.vault_path, ".trash")
+            os.makedirs(trash_dir, exist_ok=True)
+            fname = os.path.basename(full)
+            dest = os.path.join(trash_dir, fname)
+            if os.path.exists(dest):
+                base, ext = os.path.splitext(fname)
+                i = 1
+                while os.path.exists(dest):
+                    dest = os.path.join(trash_dir, f"{base}_{i}{ext}")
+                    i += 1
+            shutil.move(full, dest)
+            return {"success": True, "path": path, "message": f"Note moved to .trash/{os.path.basename(dest)}"}
+
+        if trash_mode == "system":
+            import send2trash
+            send2trash.send2trash(full)
+            return {"success": True, "path": path, "message": "Note moved to system trash"}
+
+        raise ValueError(f"Unknown trash_mode: {trash_mode!r}. Use permanent, local, or system.")
 
     # ── List directory ────────────────────────────────────────────────────────
 
