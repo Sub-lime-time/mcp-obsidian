@@ -159,11 +159,14 @@ class SearchService:
 
     def _find_md(self, dir_path: str) -> list[str]:
         files: list[str] = []
+        prefix_len = len(self.vault_path) + 1
         try:
             with os.scandir(dir_path) as it:
                 for entry in it:
+                    rel = entry.path[prefix_len:].replace("\\", "/")
                     if entry.is_dir(follow_symlinks=False):
-                        files.extend(self._find_md(entry.path))
+                        if self.path_filter.is_allowed_for_listing(rel):
+                            files.extend(self._find_md(entry.path))
                     elif entry.is_file() and entry.name.endswith(".md"):
                         files.append(entry.path)
         except OSError:

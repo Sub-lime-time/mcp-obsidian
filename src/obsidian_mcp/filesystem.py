@@ -202,6 +202,8 @@ class FileSystemService:
     def move_note(self, old_path: str, new_path: str, overwrite: bool = False) -> dict[str, Any]:
         old_full = self._resolve(old_path)
         new_full = self._resolve(new_path)
+        self._check_allowed(old_path, old_full)
+        self._check_allowed(new_path, new_full)
 
         if not os.path.exists(old_full):
             return {"success": False, "oldPath": old_path, "newPath": new_path, "message": "Source note not found"}
@@ -308,7 +310,7 @@ class FileSystemService:
         elif not isinstance(fm_tags, list):
             fm_tags = []
 
-        inline = re.findall(r"(?<![#\w])#([a-zA-Z0-9_-]+)", body)
+        inline = re.findall(r"(?:^|\s)#([a-zA-Z][a-zA-Z0-9_/\-]*)", body, re.MULTILINE)
         current = list(dict.fromkeys(fm_tags + inline))  # deduplicate, preserve order
 
         if operation == "list":

@@ -14,41 +14,41 @@ Python MCP server for Obsidian vault access. A port of [bitbonsai/mcpvault](http
 ## Requirements
 
 - macOS (tested) or Linux
-- [uv](https://docs.astral.sh/uv/) — Python package manager
+- [uv](https://docs.astral.sh/uv/) — Python package manager (`brew install uv`)
 - Python 3.11+ (installed automatically by `uv`)
 - Claude Desktop or Claude Code
 
-## Quick Start
+## Quick Start (no clone required)
+
+Install `uv`, then point your MCP client config at the GitHub repo directly — `uvx` handles the rest.
 
 ```bash
-# Install uv (macOS)
 brew install uv
-
-# Clone and install
-git clone git@github.com:Sub-lime-time/mcp-obsidian.git
-cd mcp-obsidian
-uv sync
-
-# Verify
-uv run obsidian-mcp --help
 ```
 
-## Configuration
+### Claude Code
 
-Run one instance per vault. Add to your MCP client config:
+```bash
+claude mcp add --scope user obsidian-my-vault \
+  uvx -- \
+  --from git+https://github.com/Sub-Lime-Time/mcp-obsidian \
+  obsidian-mcp "/path/to/your/vault" obsidian-my-vault
+```
 
 ### Claude Desktop — `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 > **Note:** Claude Desktop's "Add custom connector" UI (Settings → Connectors) only supports remote HTTP/SSE servers. Local stdio servers like this one require JSON config editing.
 
+Claude Desktop doesn't inherit your shell PATH, so use the full path to `uvx` (find it with `which uvx`):
+
 ```json
 {
   "mcpServers": {
     "obsidian-my-vault": {
-      "command": "/opt/homebrew/bin/uv",
+      "command": "/opt/homebrew/bin/uvx",
       "args": [
-        "--directory", "/path/to/mcp-obsidian",
-        "run", "obsidian-mcp",
+        "--from", "git+https://github.com/Sub-Lime-Time/mcp-obsidian",
+        "obsidian-mcp",
         "/path/to/your/vault",
         "obsidian-my-vault"
       ]
@@ -57,23 +57,31 @@ Run one instance per vault. Add to your MCP client config:
 }
 ```
 
-### Claude Code
-
-```bash
-claude mcp add --scope user obsidian-my-vault \
-  /opt/homebrew/bin/uv -- \
-  --directory /path/to/mcp-obsidian run obsidian-mcp \
-  "/path/to/your/vault" obsidian-my-vault
-```
-
-Replace `/path/to/mcp-obsidian` with the cloned repo path and `/path/to/your/vault` with your Obsidian vault directory. Use `--scope user` so the server is available across all projects.
-
-Verify with `claude mcp list`. To remove: `claude mcp remove obsidian-my-vault`.
+> Common `uvx` paths: `/opt/homebrew/bin/uvx` (macOS Apple Silicon), `/usr/local/bin/uvx` (macOS Intel), `~/.local/bin/uvx` (Linux).
 
 ### iCloud Vault Path (macOS)
 
 ```text
 /Users/<username>/Library/Mobile Documents/iCloud~md~obsidian/Documents/<Vault Name>
+```
+
+### Multiple vaults
+
+Run one instance per vault, each with a unique server name:
+
+```bash
+claude mcp add --scope user obsidian-work \
+  uvx -- \
+  --from git+https://github.com/Sub-Lime-Time/mcp-obsidian \
+  obsidian-mcp "/path/to/work/vault" obsidian-work
+```
+
+### Updating
+
+`uvx` caches the installed package. To pull the latest version:
+
+```bash
+uvx cache clean
 ```
 
 ## Tools
@@ -99,8 +107,19 @@ Verify with `claude mcp list`. To remove: `claude mcp remove obsidian-my-vault`.
 ## Development
 
 ```bash
-uv run obsidian-mcp /path/to/vault        # run against a vault
-uv add <package>                           # add a dependency
+# Clone and install
+git clone https://github.com/Sub-Lime-Time/mcp-obsidian.git
+cd mcp-obsidian
+uv sync
+
+# Verify
+uv run obsidian-mcp --help
+
+# Run against a vault
+uv run obsidian-mcp /path/to/vault
+
+# Add a dependency
+uv add <package>
 ```
 
 See [CLAUDE.md](CLAUDE.md) for architecture notes and rules for AI assistants working in this repo.
