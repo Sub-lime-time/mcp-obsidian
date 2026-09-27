@@ -4,6 +4,10 @@ Security model (mirrors mcpvault v0.9.1):
 - Lexical path traversal check: resolved path must not escape vault root
 - Symlink resolution check: realpath must stay within vault boundary
 - PathFilter: blocks .obsidian/, .git/, node_modules/, and non-note extensions
+
+All writes use newline="\n": text mode would otherwise emit CRLF on Windows,
+which then syncs to every other device. Reads keep universal newlines, so a
+CRLF note is normalized to LF on its next write.
 """
 from __future__ import annotations
 
@@ -107,15 +111,15 @@ class FileSystemService:
         text = self.fm.stringify(frontmatter, content) if frontmatter else content
 
         if mode == "overwrite" or not os.path.exists(full):
-            with open(full, "w", encoding="utf-8") as f:
+            with open(full, "w", encoding="utf-8", newline="\n") as f:
                 f.write(text)
         elif mode == "append":
-            with open(full, "a", encoding="utf-8") as f:
+            with open(full, "a", encoding="utf-8", newline="\n") as f:
                 f.write(text)
         elif mode == "prepend":
             with open(full, encoding="utf-8") as f:
                 existing = f.read()
-            with open(full, "w", encoding="utf-8") as f:
+            with open(full, "w", encoding="utf-8", newline="\n") as f:
                 f.write(text + existing)
         else:
             raise ValueError(f"Unknown write mode: {mode!r}. Use overwrite, append, or prepend.")
@@ -151,7 +155,7 @@ class FileSystemService:
 
         replaced = count if replace_all else 1
         new_content = content.replace(old_string, new_string) if replace_all else content.replace(old_string, new_string, 1)
-        with open(full, "w", encoding="utf-8") as f:
+        with open(full, "w", encoding="utf-8", newline="\n") as f:
             f.write(new_content)
 
         return {"success": True, "path": path, "message": f"Replaced {replaced} occurrence(s)", "matchCount": count}
@@ -289,7 +293,7 @@ class FileSystemService:
         with open(full, encoding="utf-8") as f:
             content = f.read()
         new_content = self.fm.update(content, updates, merge=merge)
-        with open(full, "w", encoding="utf-8") as f:
+        with open(full, "w", encoding="utf-8", newline="\n") as f:
             f.write(new_content)
 
     def get_notes_info(self, paths: list[str]) -> list[dict]:
@@ -358,7 +362,7 @@ class FileSystemService:
             del meta["tags"]
 
         new_content = self.fm.stringify(meta, body)
-        with open(full, "w", encoding="utf-8") as f:
+        with open(full, "w", encoding="utf-8", newline="\n") as f:
             f.write(new_content)
 
         verb = "added" if operation == "add" else "removed"
