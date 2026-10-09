@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import time
 from typing import Any
 
 from .fm import FrontmatterHandler
@@ -26,8 +27,14 @@ def _obsidian_uri(vault_path: str, rel_path: str) -> str:
     return f"obsidian://open?vault={name}&file={encoded}"
 
 
+# How long move_note waits before checking that a move stuck. iCloud for
+# Windows can silently revert a rename seconds after it succeeds (issue #2).
+MOVE_VERIFY_DELAY = 2.0
+
+
 class FileSystemService:
-    def __init__(self, vault_path: str, path_filter: PathFilter) -> None:
+    def __init__(self, vault_path: str, path_filter: PathFilter, move_verify_delay: float = MOVE_VERIFY_DELAY) -> None:
+        self.move_verify_delay = move_verify_delay
         try:
             self.vault_path = os.path.realpath(vault_path)
         except OSError:
@@ -238,6 +245,19 @@ class FileSystemService:
 
         os.makedirs(os.path.dirname(new_full), exist_ok=True)
         shutil.move(old_full, new_full)
+
+        # A false success is worse than a failure: callers go on to rewrite links.
+        if self.move_verify_delay > 0:
+            time.sleep(self.move_verify_delay)
+        at_new, at_old = os.path.exists(new_full), os.path.exists(old_full)
+        if not at_new or at_old:
+            state = "reverted to the old path" if at_old and not at_new else f"new path exists={at_new}, old path exists={at_old}"
+            return {
+                "success": False,
+                "oldPath": old_path,
+                "newPath": new_path,
+                "message": f"Move did not stick ({state}); a sync client may have undone it. Check both paths and retry.",
+            }
         return {"success": True, "oldPath": old_path, "newPath": new_path, "message": "Note moved successfully"}
 
     def move_file(
