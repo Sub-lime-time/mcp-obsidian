@@ -61,14 +61,24 @@ _LEADING_FENCE_RE = re.compile(r"\A---[ \t]*\r?\n")
 
 
 class FrontmatterHandler:
-    def parse(self, content: str) -> tuple[dict, str]:
-        """Return (metadata_dict, body_string) for any note content."""
+    def parse(self, content: str, strict: bool = False) -> tuple[dict, str]:
+        """Return (metadata_dict, body_string) for any note content.
+
+        Unparseable frontmatter falls back to ({}, content) for reads. Writers pass
+        strict=True: the fallback body still holds the broken block, so writing new
+        frontmatter over it would leave two stacked blocks (issue #6).
+        """
         if not _LEADING_FENCE_RE.match(content):
             return {}, content
         try:
             post = _fm.loads(content, handler=_HANDLER)
             return dict(post.metadata), post.content
-        except Exception:
+        except Exception as e:
+            if strict:
+                raise ValueError(
+                    f"Existing frontmatter is not valid YAML ({e}). "
+                    "Fix it by hand before updating; refusing to write a second block."
+                ) from e
             return {}, content
 
     def stringify(self, metadata: dict, body: str) -> str:
@@ -83,7 +93,7 @@ class FrontmatterHandler:
 
     def update(self, content: str, updates: dict, merge: bool = True) -> str:
         """Update frontmatter fields in-place, preserving body content."""
-        metadata, body = self.parse(content)
+        metadata, body = self.parse(content, strict=True)
         if merge:
             metadata.update(updates)
         else:
