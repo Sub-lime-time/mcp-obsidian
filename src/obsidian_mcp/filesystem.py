@@ -347,7 +347,7 @@ class FileSystemService:
         with open(full, encoding="utf-8") as f:
             content = f.read()
 
-        meta, body = self.fm.parse(content)
+        meta, body = self.fm.parse(content, strict=operation in ("add", "remove"))
 
         # Build current tag list from frontmatter + inline #tags
         fm_tags = meta.get("tags", [])
