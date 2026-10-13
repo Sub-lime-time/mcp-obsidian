@@ -78,11 +78,15 @@ claude mcp add --scope user obsidian-work \
 
 ### Updating
 
-`uvx` caches the installed package. To pull the latest version:
+`uvx` caches the installed package. To pull the latest `main` and confirm which commit you're on:
 
 ```bash
-uvx cache clean
+uvx --refresh --from git+https://github.com/Sub-Lime-Time/mcp-obsidian python -c "import json, importlib.metadata as m; print('mcp-obsidian at', json.loads(m.distribution('obsidian-mcp').read_text('direct_url.json'))['vcs_info']['commit_id'][:7])"
 ```
+
+Compare the printed commit with the latest one on `main`, then restart your MCP client so the server process picks up the new code. In Claude Desktop, quit with ⌘Q and reopen. In Claude Code, start a new session or reconnect the server in `/mcp`.
+
+This works while the server is running, so an AI assistant can run it for you. Don't use `uv cache clean` for updates: a running `uvx` server holds uv's cache lock, so the clean waits and then fails after `UV_LOCK_TIMEOUT` (300 s by default) unless every client using the server is closed first. (`uvx cache clean` doesn't work either; it tries to run a tool named `cache`.)
 
 ## Tools
 
