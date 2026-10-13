@@ -21,6 +21,7 @@ src/obsidian_mcp/
 ```bash
 uv run obsidian-mcp /path/to/vault            # single vault
 uv run obsidian-mcp /path/to/vault my-name    # custom server name (for multi-vault)
+uv run pytest                                 # tests (tests/)
 ```
 
 ## Dependencies
