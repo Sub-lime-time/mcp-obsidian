@@ -53,10 +53,18 @@ class _ObsidianHandler(YAMLHandler):
 
 _HANDLER = _ObsidianHandler()
 
+# Frontmatter only exists when the note *starts* with a fence. Passing an explicit
+# handler to frontmatter.loads() skips its own start-of-file check, and the handler's
+# split() treats any '---' line as a fence — so a note with no frontmatter but '---'
+# dividers would lose everything above the second divider (issue #4).
+_LEADING_FENCE_RE = re.compile(r"\A---[ \t]*\r?\n")
+
 
 class FrontmatterHandler:
     def parse(self, content: str) -> tuple[dict, str]:
         """Return (metadata_dict, body_string) for any note content."""
+        if not _LEADING_FENCE_RE.match(content):
+            return {}, content
         try:
             post = _fm.loads(content, handler=_HANDLER)
             return dict(post.metadata), post.content
