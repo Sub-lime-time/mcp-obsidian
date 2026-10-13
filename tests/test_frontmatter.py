@@ -1,7 +1,8 @@
-"""Regression tests for frontmatter detection (issue #4).
+"""Regression tests for frontmatter parsing on write paths.
 
-A note with no frontmatter but '---' horizontal-rule dividers in its body used to
-lose everything above the second divider on update_frontmatter / manage_tags.
+#4: a note with no frontmatter but '---' dividers lost everything above the second
+divider on update_frontmatter / manage_tags.
+#6: a note with invalid frontmatter got a second block stacked on top of it.
 """
 import pytest
 
