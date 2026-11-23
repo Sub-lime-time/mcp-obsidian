@@ -41,6 +41,7 @@ uv run <cmd>        # run in the project venv
   - Lexical check: `os.path.relpath(full, vault_path).startswith("..")`
   - Symlink check: `os.path.realpath(full)` must stay within vault root
 - **PathFilter** in `pathfilter.py` blocks `.obsidian/`, `.git/`, `node_modules/`, and non-note extensions. Don't loosen it without explicit request.
+- **Vault-wide scans skip every dot-folder** (`.trash`, `.obsidian-windows`, `.stfolder`, …), as Obsidian does: `FileSystemService._walk`, `SearchService._find_md`, `links.iter_vault_files`. A new scan should use one of these, not a bare `os.walk`.
 - **Destructive ops** (`delete_note`, `move_file`) require confirmation path parameters.
 - **YAML safety**: `python-frontmatter` uses `yaml.safe_load` by default. Never switch to `yaml.load`.
 

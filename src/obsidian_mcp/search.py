@@ -164,6 +164,8 @@ class SearchService:
             with os.scandir(dir_path) as it:
                 for entry in it:
                     rel = entry.path[prefix_len:].replace("\\", "/")
+                    if entry.name.startswith("."):
+                        continue  # dot-folders (.trash, .obsidian-windows) and dotfiles, as Obsidian
                     if entry.is_dir(follow_symlinks=False):
                         if self.path_filter.is_allowed_for_listing(rel):
                             files.extend(self._find_md(entry.path))
