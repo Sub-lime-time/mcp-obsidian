@@ -15,7 +15,7 @@ import os
 import re
 import shutil
 import time
-from typing import Any
+from typing import Any, Iterator
 
 from . import links
 from .fm import FrontmatterHandler
@@ -81,6 +81,22 @@ class FileSystemService:
                 pass  # Parent also new — lexical check above is sufficient
 
         return full
+
+    def _walk(self) -> Iterator[tuple[str, list[str], list[str]]]:
+        """os.walk over the vault for vault-wide scans.
+
+        Skips dot-folders and dotfiles (.obsidian, .obsidian-windows, .trash,
+        .stfolder, .DS_Store), as Obsidian does, plus anything the PathFilter
+        ignores. Explicit reads and writes by path are unaffected.
+        """
+        for root, dirs, files in os.walk(self.vault_path):
+            rel_root = self._to_rel(root)
+            prefix = "" if rel_root == "." else rel_root + "/"
+            dirs[:] = [
+                d for d in dirs
+                if not d.startswith(".") and self.path_filter.is_allowed_for_listing(prefix + d)
+            ]
+            yield root, dirs, [f for f in files if not f.startswith(".")]
 
     def _to_rel(self, full_path: str) -> str:
         return os.path.relpath(full_path, self.vault_path).replace("\\", "/")
@@ -490,17 +506,7 @@ class FileSystemService:
         total_size = 0
         all_recent: list[dict] = []
 
-        for root, dirs, files in os.walk(self.vault_path):
-            rel_root = self._to_rel(root)
-
-            # Prune ignored directories in-place
-            dirs[:] = [
-                d for d in dirs
-                if self.path_filter.is_allowed_for_listing(
-                    (rel_root + "/" + d).lstrip("./")
-                )
-            ]
-
+        for root, dirs, files in self._walk():
             if root != self.vault_path:
                 total_folders += 1
 
@@ -532,15 +538,7 @@ class FileSystemService:
         tag_counts: dict[str, int] = {}
         inline_re = re.compile(r"(?:^|\s)#([a-zA-Z][a-zA-Z0-9_/\-]*)", re.MULTILINE)
 
-        for root, dirs, files in os.walk(self.vault_path):
-            rel_root = self._to_rel(root)
-            dirs[:] = [
-                d for d in dirs
-                if self.path_filter.is_allowed_for_listing(
-                    (rel_root + "/" + d).lstrip("./")
-                )
-            ]
-
+        for root, dirs, files in self._walk():
             for fname in files:
                 if not fname.endswith(".md"):
                     continue
