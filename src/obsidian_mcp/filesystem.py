@@ -17,6 +17,7 @@ import shutil
 import time
 from typing import Any
 
+from . import links
 from .fm import FrontmatterHandler
 from .pathfilter import PathFilter
 
@@ -232,7 +233,14 @@ class FileSystemService:
 
     # ── Move ──────────────────────────────────────────────────────────────────
 
-    def move_note(self, old_path: str, new_path: str, overwrite: bool = False) -> dict[str, Any]:
+    def move_note(
+        self,
+        old_path: str,
+        new_path: str,
+        overwrite: bool = False,
+        update_links: bool = True,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
         old_full = self._resolve(old_path)
         new_full = self._resolve(new_path)
         self._check_allowed(old_path, old_full)
@@ -242,6 +250,29 @@ class FileSystemService:
             return {"success": False, "oldPath": old_path, "newPath": new_path, "message": "Source note not found"}
         if os.path.exists(new_full) and not overwrite:
             return {"success": False, "oldPath": old_path, "newPath": new_path, "message": "Destination already exists. Use overwrite=true to overwrite."}
+        if os.path.isdir(old_full) and (new_full + os.sep).startswith(old_full + os.sep):
+            return {"success": False, "oldPath": old_path, "newPath": new_path, "message": "Cannot move a folder into itself."}
+
+        plan = None
+        if update_links or dry_run:
+            files = list(links.iter_vault_files(self.vault_path, self.path_filter))
+            plan = links.plan_move(self.vault_path, files, self._to_rel(old_full), self._to_rel(new_full))
+
+        if dry_run:
+            changes = [
+                {"file": rw.new_source, "line": rw.line, "old": rw.old, "new": rw.new}
+                for rws in plan.rewrites.values() for rw in rws
+            ]
+            return {
+                "success": True,
+                "dryRun": True,
+                "oldPath": old_path,
+                "newPath": new_path,
+                "message": f"Would move and update {plan.link_count} link(s) in {len(plan.rewrites)} file(s). Nothing was changed.",
+                "changes": changes[:200],
+                "changesTruncated": len(changes) > 200,
+                **self._plan_warnings(plan),
+            }
 
         os.makedirs(os.path.dirname(new_full), exist_ok=True)
         shutil.move(old_full, new_full)
@@ -256,9 +287,70 @@ class FileSystemService:
                 "success": False,
                 "oldPath": old_path,
                 "newPath": new_path,
-                "message": f"Move did not stick ({state}); a sync client may have undone it. Check both paths and retry.",
+                "message": f"Move did not stick ({state}); a sync client may have undone it. Check both paths and retry. No links were changed.",
             }
-        return {"success": True, "oldPath": old_path, "newPath": new_path, "message": "Note moved successfully"}
+
+        result: dict[str, Any] = {"success": True, "oldPath": old_path, "newPath": new_path, "message": "Note moved successfully"}
+        if plan is None:
+            return result
+
+        updated, skipped, count = self._apply_plan(plan)
+        result["linksUpdated"] = count
+        result["filesUpdated"] = updated
+        if skipped:
+            result["filesSkipped"] = skipped
+        result["message"] = f"Note moved; updated {count} link(s) in {len(updated)} file(s)"
+        result.update(self._plan_warnings(plan))
+        return result
+
+    @staticmethod
+    def _plan_warnings(plan: "links.MovePlan") -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        if plan.ambiguous:
+            out["ambiguous"] = plan.ambiguous[:50]
+        if plan.unrewritable:
+            out["unrewritable"] = plan.unrewritable[:50]
+        return out
+
+    def _apply_plan(self, plan: "links.MovePlan") -> tuple[list[str], list[dict], int]:
+        """Write the planned rewrites. A file edited since planning is skipped."""
+        updated: list[str] = []
+        skipped: list[dict] = []
+        count = 0
+        for source, rewrites in plan.rewrites.items():
+            target = rewrites[0].new_source
+            full = os.path.join(self.vault_path, target)
+            current = links.read_text(self.vault_path, target)
+            if current != plan.contents[source]:
+                skipped.append({"file": target, "reason": "changed while moving; links not updated"})
+                continue
+            with open(full, "w", encoding="utf-8", newline="\n") as f:
+                f.write(links.apply_rewrites(current, rewrites))
+            updated.append(target)
+            count += len(rewrites)
+        return updated, skipped, count
+
+    # ── Links ─────────────────────────────────────────────────────────────────
+
+    def _link_index(self) -> "links.LinkIndex":
+        return links.LinkIndex(list(links.iter_vault_files(self.vault_path, self.path_filter)))
+
+    def get_note_links(self, path: str) -> dict[str, Any]:
+        full = self._resolve(path)
+        self._check_allowed(path, full)
+        if not os.path.isfile(full):
+            raise FileNotFoundError(f"Note not found: {path!r}")
+        return links.note_links(self.vault_path, self._link_index(), self._to_rel(full))
+
+    def audit_links(self, folder: str = "", limit: int = 100) -> dict[str, Any]:
+        if folder.strip("/"):
+            full = self._resolve(folder)
+            if not os.path.isdir(full):
+                raise NotADirectoryError(f"Not a directory: {folder!r}")
+            folder = self._to_rel(full)
+        else:
+            folder = ""
+        return links.audit(self.vault_path, self._link_index(), folder, max(1, min(limit, 500)))
 
     def move_file(
         self,
@@ -267,6 +359,7 @@ class FileSystemService:
         confirm_old: str,
         confirm_new: str,
         overwrite: bool = False,
+        update_links: bool = True,
     ) -> dict[str, Any]:
         if old_path.strip() != confirm_old.strip() or new_path.strip() != confirm_new.strip():
             return {
@@ -275,7 +368,7 @@ class FileSystemService:
                 "newPath": new_path,
                 "message": "Confirmation paths do not match — move aborted.",
             }
-        return self.move_note(old_path, new_path, overwrite)
+        return self.move_note(old_path, new_path, overwrite, update_links)
 
     # ── Batch read ────────────────────────────────────────────────────────────
 

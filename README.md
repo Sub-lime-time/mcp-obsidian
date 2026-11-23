@@ -4,7 +4,8 @@ Python MCP server for Obsidian vault access. A port of [bitbonsai/mcpvault](http
 
 ## Features
 
-- **15 tools** covering all vault operations: read, write, patch, search, move, delete, tag management, frontmatter, and vault stats
+- **17 tools** covering all vault operations: read, write, patch, search, move, delete, tag management, frontmatter, vault stats, and links
+- **Link-aware moves**: moving or renaming a note or folder rewrites the links it would break, like Obsidian's "Automatically update internal links", without Obsidian running. See [Links](#links)
 - **BM25 full-text search** with multi-word relevance reranking
 - **Safe frontmatter** — YAML parsed with `yaml.safe_load`, key order preserved on writes
 - **Security hardened** — path traversal prevention with lexical + symlink boundary checks (mirrors mcpvault v0.9.1), PathFilter blocks `.obsidian/`, `.git/`, and non-note extensions, destructive ops require path confirmation
@@ -98,8 +99,8 @@ This works while the server is running, so an AI assistant can run it for you. D
 | `list_directory` | Browse vault folders |
 | `delete_note` | Delete a note (requires path confirmation) |
 | `search_notes` | Full-text BM25 search across content and/or frontmatter |
-| `move_note` | Move or rename a note |
-| `move_file` | Move any file with dual path confirmation |
+| `move_note` | Move or rename a note or folder, rewriting links it would break (`update_links`, `dry_run`) |
+| `move_file` | Move any file with dual path confirmation (also rewrites links) |
 | `read_multiple_notes` | Batch read up to 10 notes |
 | `update_frontmatter` | Update YAML frontmatter without touching body |
 | `get_notes_info` | File metadata without reading content |
@@ -107,6 +108,20 @@ This works while the server is running, so an AI assistant can run it for you. D
 | `manage_tags` | Add, remove, or list tags |
 | `get_vault_stats` | Total notes, folders, size, recently modified |
 | `list_all_tags` | All tags across vault with occurrence counts |
+| `get_note_links` | A note's outgoing links, unresolved links, and backlinks (source + line) |
+| `audit_links` | Vault or folder link health: unresolved targets, orphan notes, ambiguous links |
+
+## Links
+
+`move_note` and `move_file` update links by default (`update_links=true`). Pass `dry_run=true` to see every change first without moving anything.
+
+**What gets rewritten:** wikilinks and embeds (`[[Note]]`, `[[Folder/Note]]`, `[[Note.md]]`, `#heading`, `#^block`, `|alias`, and the `\|alias` form used inside tables), wikilinks in frontmatter, and markdown links (`[text](Folder/Note%20Name.md)`), including relative links inside the moved note. Links in fenced or inline code are left alone.
+
+**The rule:** a link changes only if its current text would stop resolving to the same file after the move. A bare `[[Note]]` survives a folder move unchanged; a path link gets the new path; a rename that makes a bare name ambiguous gets the full path. Unresolved (placeholder) links are never touched. Each link keeps its own style.
+
+**Resolution** approximates Obsidian's: a case-insensitive path-suffix match with `.md` implied; when several files match, a path relative to the linking note, then from the vault root, then the linking note's folder, then the shortest path. Links that only resolve by that last tiebreak are reported as `ambiguous`, since Obsidian may pick differently. Dot-folders (`.obsidian`, `.trash`) are ignored, as Obsidian does.
+
+**Not covered:** `.canvas` and `.base` files, and reference-style markdown links (`[x][ref]`). A file edited between planning and writing is skipped and listed in `filesSkipped`. If a sync client undoes the move, no links are changed.
 
 ## Development
 

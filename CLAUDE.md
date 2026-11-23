@@ -9,9 +9,10 @@ Python MCP server for Obsidian vault access. Port of [bitbonsai/mcpvault](https:
 ```
 src/obsidian_mcp/
 ├── __main__.py    CLI entry: obsidian-mcp <vault-path> [server-name]
-├── server.py      FastMCP server, all 15 tools registered here
+├── server.py      FastMCP server, all 17 tools registered here
 ├── filesystem.py  All vault I/O + security enforcement
 ├── search.py      BM25 full-text search
+├── links.py       Link parsing, Obsidian-style resolution, move rewrite planning
 ├── fm.py          Frontmatter parse/stringify (python-frontmatter + PyYAML)
 └── pathfilter.py  Path allow/deny filtering
 ```
@@ -61,5 +62,6 @@ The server takes a vault path at startup — run one instance per vault. Each in
 3. **Don't weaken security checks** — if a path filtering or traversal check seems overly strict, ask before removing it.
 4. **Sync I/O is intentional** — MCP requests are serial; async is not needed.
 5. **Tool parameter names are snake_case** — the FastMCP schema reflects this. Don't convert to camelCase.
-6. **15 tools exactly** — they mirror mcpvault v0.11.0. Add new tools only when explicitly requested.
+6. **17 tools exactly**: the 15 from mcpvault v0.11.0 plus `get_note_links` and `audit_links` (added 2026-11-23 at Greg's request). Add new tools only when explicitly requested.
 7. **Preserve key order in frontmatter** — the `_ObsidianHandler` in `fm.py` uses `sort_keys=False`. Keep it that way.
+8. **Link rewrites are conservative**: `links.plan_move` only changes a link whose text would stop resolving to the same file. Keep that invariant. Before changing resolution or rewriting, run `uv run python scripts/check_link_moves.py "<vault>" 40 1` against each real vault. It works on a temp copy, makes random note and folder moves, and fails if any link stops reaching its file.
