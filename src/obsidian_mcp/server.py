@@ -1,4 +1,4 @@
-"""MCP server factory: registers all 15 Obsidian vault tools via FastMCP."""
+"""MCP server factory: registers all 17 Obsidian vault tools via FastMCP."""
 from __future__ import annotations
 
 import json
@@ -109,9 +109,11 @@ def create_server(vault_path: str, name: str = "obsidian-mcp") -> FastMCP:
         old_path: Annotated[str, Field(description="Current path of the note")],
         new_path: Annotated[str, Field(description="New path for the note")],
         overwrite: Annotated[bool, Field(description="Allow overwriting existing file (default: false)")] = False,
+        update_links: Annotated[bool, Field(description="Rewrite links elsewhere in the vault that the move would break (default: true, like Obsidian)")] = True,
+        dry_run: Annotated[bool, Field(description="Report the move and every link change without changing anything (default: false)")] = False,
     ) -> str:
-        """Move or rename a note in the vault."""
-        result = fs.move_note(old_path, new_path, overwrite)
+        """Move or rename a note or folder. By default also rewrites wikilinks, embeds and markdown links that would otherwise break, keeping each link's style, heading/block and alias. Links that still resolve are left untouched. Use dry_run to preview."""
+        result = fs.move_note(old_path, new_path, overwrite, update_links, dry_run)
         return json.dumps(result, indent=2)
 
     # ── move_file ─────────────────────────────────────────────────────────────
@@ -123,9 +125,10 @@ def create_server(vault_path: str, name: str = "obsidian-mcp") -> FastMCP:
         confirm_old_path: Annotated[str, Field(description="Must exactly match old_path")],
         confirm_new_path: Annotated[str, Field(description="Must exactly match new_path")],
         overwrite: Annotated[bool, Field(description="Allow overwriting existing file (default: false)")] = False,
+        update_links: Annotated[bool, Field(description="Rewrite links that the move would break (default: true)")] = True,
     ) -> str:
         """Move or rename any file in the vault (binary-safe). Requires path confirmation."""
-        result = fs.move_file(old_path, new_path, confirm_old_path, confirm_new_path, overwrite)
+        result = fs.move_file(old_path, new_path, confirm_old_path, confirm_new_path, overwrite, update_links)
         return json.dumps(result, indent=2)
 
     # ── read_multiple_notes ───────────────────────────────────────────────────
@@ -220,5 +223,30 @@ def create_server(vault_path: str, name: str = "obsidian-mcp") -> FastMCP:
         tags = fs.list_all_tags()
         indent = 2 if pretty_print else None
         return json.dumps(tags, indent=indent)
+
+    # ── get_note_links ────────────────────────────────────────────────────────
+
+    @mcp.tool()
+    def get_note_links(
+        path: Annotated[str, Field(description="Path to the note relative to vault root")],
+        pretty_print: Annotated[bool, Field(description="Format JSON response with indentation")] = False,
+    ) -> str:
+        """A note's outgoing links (with resolved targets), its unresolved links, and every backlink (source note and line). Use it to check that A -> B links have a B -> A backlink."""
+        result = fs.get_note_links(path)
+        indent = 2 if pretty_print else None
+        return json.dumps(result, indent=indent)
+
+    # ── audit_links ───────────────────────────────────────────────────────────
+
+    @mcp.tool()
+    def audit_links(
+        folder: Annotated[str, Field(description="Limit the report to notes in this folder (default: whole vault)")] = "",
+        limit: Annotated[int, Field(description="Maximum entries per section (default: 100, max: 500)")] = 100,
+        pretty_print: Annotated[bool, Field(description="Format JSON response with indentation")] = False,
+    ) -> str:
+        """Vault link health: unresolved link targets (grouped, with sources), orphan notes with no backlinks, and ambiguous links that match several files. Unresolved links may be intentional placeholders."""
+        result = fs.audit_links(folder, limit)
+        indent = 2 if pretty_print else None
+        return json.dumps(result, indent=indent)
 
     return mcp
