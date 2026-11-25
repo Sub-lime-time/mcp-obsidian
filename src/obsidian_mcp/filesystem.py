@@ -32,10 +32,24 @@ def _obsidian_uri(vault_path: str, rel_path: str) -> str:
 # Windows can silently revert a rename seconds after it succeeds (issue #2).
 MOVE_VERIFY_DELAY = 2.0
 
+# iCloud for Windows reverts every move into a folder created moments earlier,
+# some of them 10-34 s after the verify above passed (15/15 in the 2026-11-23/24
+# probe; vault note "Obsidian MCP - iCloud Late Revert Test"). Moves into an
+# existing folder never reverted (0/30). So on Windows, a move whose destination
+# folder doesn't exist yet only creates the folder and asks the caller to retry.
+DEFER_NEW_FOLDER_MOVES = os.name == "nt"
+
 
 class FileSystemService:
-    def __init__(self, vault_path: str, path_filter: PathFilter, move_verify_delay: float = MOVE_VERIFY_DELAY) -> None:
+    def __init__(
+        self,
+        vault_path: str,
+        path_filter: PathFilter,
+        move_verify_delay: float = MOVE_VERIFY_DELAY,
+        defer_new_folder_moves: bool = DEFER_NEW_FOLDER_MOVES,
+    ) -> None:
         self.move_verify_delay = move_verify_delay
+        self.defer_new_folder_moves = defer_new_folder_moves
         try:
             self.vault_path = os.path.realpath(vault_path)
         except OSError:
@@ -269,6 +283,23 @@ class FileSystemService:
         if os.path.isdir(old_full) and (new_full + os.sep).startswith(old_full + os.sep):
             return {"success": False, "oldPath": old_path, "newPath": new_path, "message": "Cannot move a folder into itself."}
 
+        new_parent = os.path.dirname(new_full)
+        defer = self.defer_new_folder_moves and not os.path.isdir(new_parent)
+
+        if defer and not dry_run:
+            os.makedirs(new_parent, exist_ok=True)
+            return {
+                "success": False,
+                "retry": True,
+                "oldPath": old_path,
+                "newPath": new_path,
+                "message": (
+                    f"Created folder {self._to_rel(new_parent)!r} but did not move the note: iCloud for Windows "
+                    "undoes moves into a just-created folder. Retry the same move in about a minute. "
+                    "Nothing else was changed."
+                ),
+            }
+
         plan = None
         if update_links or dry_run:
             files = list(links.iter_vault_files(self.vault_path, self.path_filter))
@@ -288,9 +319,10 @@ class FileSystemService:
                 "changes": changes[:200],
                 "changesTruncated": len(changes) > 200,
                 **self._plan_warnings(plan),
+                **({"note": "The destination folder doesn't exist yet. On this platform the real move will create it and stop; retry it about a minute later."} if defer else {}),
             }
 
-        os.makedirs(os.path.dirname(new_full), exist_ok=True)
+        os.makedirs(new_parent, exist_ok=True)
         shutil.move(old_full, new_full)
 
         # A false success is worse than a failure: callers go on to rewrite links.

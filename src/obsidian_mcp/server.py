@@ -112,7 +112,7 @@ def create_server(vault_path: str, name: str = "obsidian-mcp") -> FastMCP:
         update_links: Annotated[bool, Field(description="Rewrite links elsewhere in the vault that the move would break (default: true, like Obsidian)")] = True,
         dry_run: Annotated[bool, Field(description="Report the move and every link change without changing anything (default: false)")] = False,
     ) -> str:
-        """Move or rename a note or folder. By default also rewrites wikilinks, embeds and markdown links that would otherwise break, keeping each link's style, heading/block and alias. Links that still resolve are left untouched. Use dry_run to preview."""
+        """Move or rename a note or folder. By default also rewrites wikilinks, embeds and markdown links that would otherwise break, keeping each link's style, heading/block and alias. Links that still resolve are left untouched. Use dry_run to preview. On Windows, a move into a folder that doesn't exist yet only creates the folder and returns retry=true; call it again in about a minute."""
         result = fs.move_note(old_path, new_path, overwrite, update_links, dry_run)
         return json.dumps(result, indent=2)
 
