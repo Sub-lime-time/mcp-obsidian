@@ -200,6 +200,42 @@ def test_failed_move_touches_no_links(tmp_path, monkeypatch):
     assert read(tmp_path, "Hub.md") == "[[A]]\n"
 
 
+def test_new_folder_move_deferred_when_enabled(tmp_path):
+    # iCloud for Windows reverts moves into a just-created folder (late-revert probe).
+    svc = make_vault(tmp_path, {"A.md": "x", "Hub.md": "[[A]]\n"})
+    svc.defer_new_folder_moves = True
+    r = svc.move_note("A.md", "New/Deeper/A.md")
+    assert not r["success"] and r["retry"]
+    assert (tmp_path / "New/Deeper").is_dir()
+    assert (tmp_path / "A.md").exists() and not (tmp_path / "New/Deeper/A.md").exists()
+    assert read(tmp_path, "Hub.md") == "[[A]]\n"
+    # The retry is now a move into an existing folder, which goes through.
+    r = svc.move_note("A.md", "New/Deeper/A.md")
+    assert r["success"] and (tmp_path / "New/Deeper/A.md").exists()
+
+
+def test_deferral_spares_renames_and_existing_folders(tmp_path):
+    svc = make_vault(tmp_path, {"A.md": "x", "Dir/keep.md": "k", "Old/n.md": "n"})
+    svc.defer_new_folder_moves = True
+    assert svc.move_note("A.md", "Dir/A.md")["success"]
+    assert svc.move_note("Dir/A.md", "Dir/B.md")["success"]
+    assert svc.move_note("Old", "Renamed")["success"]
+
+
+def test_deferral_dry_run_changes_nothing(tmp_path):
+    svc = make_vault(tmp_path, {"A.md": "x", "Hub.md": "[[A]]\n"})
+    svc.defer_new_folder_moves = True
+    r = svc.move_note("A.md", "New/A.md", dry_run=True)
+    assert r["success"] and r["dryRun"] and "note" in r
+    assert not (tmp_path / "New").exists()
+
+
+def test_new_folder_move_not_deferred_by_default_off_windows(tmp_path):
+    svc = make_vault(tmp_path, {"A.md": "x"})
+    svc.defer_new_folder_moves = False
+    assert svc.move_note("A.md", "New/A.md")["success"]
+
+
 def test_writes_lf_and_ignores_obsidian_dir(tmp_path):
     svc = make_vault(tmp_path, {
         "A.md": "x",

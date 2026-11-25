@@ -123,6 +123,8 @@ This works while the server is running, so an AI assistant can run it for you. D
 
 **Not covered:** `.canvas` and `.base` files, and reference-style markdown links (`[x][ref]`). A file edited between planning and writing is skipped and listed in `filesSkipped`. If a sync client undoes the move, no links are changed.
 
+**Windows (iCloud for Windows):** a move into a folder that doesn't exist yet creates the folder and stops, returning `success: false, retry: true`; nothing moves and no links change. Retry the same call about a minute later. iCloud for Windows reverted every move into a just-created folder in testing (15/15, some 10–34 s after the move looked done, which left the rewritten links dangling), while renames and moves into existing folders never reverted (0/30). macOS and Linux are unaffected.
+
 ## Development
 
 ```bash
